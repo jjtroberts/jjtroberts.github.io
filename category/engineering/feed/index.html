@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+	xmlns:slash="http://purl.org/rss/1.0/modules/slash/"
+	>
+
+<channel>
+	<title>Engineering &#8211; A Reasonable Man</title>
+	<atom:link href="https://www.josephjtroberts.com/category/engineering/feed/" rel="self" type="application/rss+xml" />
+	<link>https://www.josephjtroberts.com/</link>
+	<description>grappling with the vagaries of life and technology</description>
+	<lastBuildDate>Thu, 09 May 2019 18:21:09 +0000</lastBuildDate>
+	<language>en-US</language>
+	<sy:updatePeriod>
+	hourly	</sy:updatePeriod>
+	<sy:updateFrequency>
+	1	</sy:updateFrequency>
+	<generator>https://wordpress.org/?v=5.4.1</generator>
+	<item>
+		<title>Autodepolying to Kubernetes using Google Cloud Build</title>
+		<link>https://www.josephjtroberts.com/autodepolying-to-kubernetes-using-google-cloud-build/?utm_source=rss&#038;utm_medium=rss&#038;utm_campaign=autodepolying-to-kubernetes-using-google-cloud-build</link>
+		
+		<dc:creator><![CDATA[jroberts]]></dc:creator>
+		<pubDate>Thu, 09 May 2019 02:40:20 +0000</pubDate>
+				<category><![CDATA[Engineering]]></category>
+		<category><![CDATA[Google Cloud Platform]]></category>
+		<category><![CDATA[Ansible]]></category>
+		<category><![CDATA[Automation]]></category>
+		<category><![CDATA[Bash]]></category>
+		<category><![CDATA[GCP]]></category>
+		<category><![CDATA[Kubernetes]]></category>
+		<category><![CDATA[Laravel]]></category>
+		<category><![CDATA[PHP]]></category>
+		<category><![CDATA[Terraform]]></category>
+		<guid isPermaLink="false">https://www.josephjtroberts.com/?p=139</guid>
+
+					<description><![CDATA[<p>&#160; Few things in life are as certain as death and taxes&#8230;and with new capital partners come new business objectives. The new hotness is now&#8230;</p>
+<div class="more-link-wrapper"><a class="more-link" href="https://www.josephjtroberts.com/autodepolying-to-kubernetes-using-google-cloud-build/">Continue reading<span class="screen-reader-text">Autodepolying to Kubernetes using Google Cloud Build</span></a></div>
+<p>The post <a rel="nofollow" href="https://www.josephjtroberts.com/autodepolying-to-kubernetes-using-google-cloud-build/">Autodepolying to Kubernetes using Google Cloud Build</a> appeared first on <a rel="nofollow" href="https://www.josephjtroberts.com/">A Reasonable Man</a>.</p>
+]]></description>
+										<content:encoded><![CDATA[
+<p>&nbsp;</p>
+
+<p>Few things in life are as certain as death and taxes&#8230;and with new capital partners come new business objectives. The new hotness is now the old hotness, mercilessly replaced by the new, new hotness regardless of how many hours you and your team had invested in the old hotness. Silicon Valley folks like Reid Hoffman would brand this as a &#8220;<a href="https://player.fm/series/masters-of-scale-with-reid-hoffman/13-the-big-pivot-with-slacks-stewart-butterfield">pivot</a>&#8221; even though I would argue that we had not yet begun to fail!</p>
+
+
+
+<p>As sure as employee churn and leadership shuffle following the sale is the sudden appearance of urgent deadlines for the new hotness furiously followed by meeting makers and leadership repeating, &#8220;We&#8217;ve got to get this done!&#8221; Turns out the new hotness is a collection of microservices that track customer engagement for the Assisted Living/Memory Care rental market. </p>
+<p>For first-time readers, I am the Lead Systems Engineer for <a href="https://www.glynndevins.com">GlynnDevins</a>, the leading Senior Living Marketing Agency that specializes in partnering with communities to generate occupancy leads through multiple channels. As an agency in the midst of a digital transformation we have struggled to break into markets outside of the mostly white, high-end cruise-ship-on-land type of community we traditionally serve. While this has been lucrative, and will likely continue to be so with the looming <a href="http://beelineblogger.blogspot.com/2014/06/boom-and-bust.html">Age Wave</a> until Social Security and the 401(k) system become insolvent. Either way, our capital partners have set a goal for our company to double its annual revenue. The only way to accomplish that is to break into new markets that are underserved or cannot afford the high-end services GlynnDevins traditionally provides.</p>
+<p>So that brings us to this blog post. We need a Kubernetes cluster for ongoing development efforts along with a MySQL database and a console application for both employees and clients to track leads. The goal is not only for quality leads to be identified and provided to our customers (which is an entirely different but related ongoing data warehouse project), but also for these sales counselors to be able to login to the console and track lead progress. The objective is to get a lead from first contact to an on-site tour with the hope that they&#8217;ll fall in love with the community and sign up to live there. There will be many triggers depending on the lifecycle of the lead. Also, because of GDPR (and good manners) the leads need to be able to opt-out at any time.</p>
+<h2>Time for some Infrastructure-as-Code</h2>
+<p>After creating a new GCP project and an IAM service account with the &#8220;Owner&#8221; role, I used <a href="https://www.terraform.io/">Terraform</a> to stand up a three node GKE cluster with n1-standard-2 instances and a db-n1-standard-1 Cloud SQL instance for the MySQL 5.7 requirement. Nothing too beefy for a PoC dev cluster as we do not want to exhaust budget, but also a little more breathing room because we are going to add more microservices in the near future.</p>
+<p>Using custom Ansible roles, I deployed an nginx ingress controller, cert-manager with Route53 DNS provider, kubed to propagate cert-manager certificates to all namespaces, and cloudsql-proxy to connect with Cloud SQL. There&#8217;s lots of glue going on there but that deep-dive would be better suited to a separate blog series.</p>
+<p>Now that I have a functional cluster with ingress and TLS termination, I&#8217;m ready to provision, deploy and configure my microservice for the console. It turns out Terraform also has a module for <a href="https://www.terraform.io/docs/providers/google/r/cloud_build_trigger.html">Google Cloud Build triggers</a>, but the docs on how to hook it up to Bitbucket were nebulous at best. It seems Cloud Build (CB) automatically parses the repo_name value by exploding the underscores to determine the VCS provider, team and repo slug.</p>
+<pre>resource "google_cloudbuild_trigger" "almc-console-trigger" {
+  description = "AL/MC Console Bitbucket Trigger"
+
+  trigger_template {
+    branch_name = "master"
+    repo_name   = "bitbucket_glynndevins_almc-console"
+  }
+
+  filename = "cloudbuild.yaml"
+}</pre>
+<h2>Automate All-The-Things</h2>
+<p>The almc-console repository provided by our Development Lead needs a few CI/CD files dropped in by your friendly Systems Engineer:</p>
+<ul>
+<li>id_rsa.enc &#8211; an encrypted private key which CB will decrypt at build-time</li>
+<li>Dockerfile &#8211; for CB to build the image</li>
+<li>.gcloudignore &#8211; because CB respects .gitignore unless .gcloudignore is present to override</li>
+<li>cloudbuild.yaml &#8211;  with all the CB steps</li>
+</ul>
+<p>GCP provides <a href="https://cloud.google.com/cloud-build/docs/securing-builds/use-encrypted-secrets-credentials#creating_a_cloud_kms_keyring_and_cryptokey">excellent documentation</a> about setting up a keyring so you can use encrypted resources in your builds. The console is a Laravel application and the image we will build uses busybox as a simple init-container for our code. Leveraging <a href="https://kubernetes.io/docs/concepts/workloads/pods/init-containers/">Kubernetes init containers</a> allows us to keep the code separate from the nginx and php-fpm containers in our deployment. The nginx and php-fpm containers share a code volume from the init-container whose sole purpose is to copy the source code into nginx so it can serve static assets, and to copy the same source code into php-fpm so fastcgi can serve php requests. After that the init container goes away, but leaves us the capability to update code independent of the front and back end containers. It also speeds up build times which keeps CB costs down if we happen to exceed the free tier of 120 free build-minutes per day per billing account.</p>
+<p>Here&#8217;s the final cloudbuild.yaml:</p>
+<pre>timeout: 1200s
+steps:
+# Use the keyring to decrypt the included id_rsa.enc and set it up as the root ssh private key
+- id: gcloud-kms-init
+  name: 'gcr.io/cloud-builders/gcloud'
+  args:
+  - kms
+  - decrypt
+  - --ciphertext-file=id_rsa.enc
+  - --plaintext-file=/root/.ssh/id_rsa
+  - --location=
+  - --keyring=projects/[project-name]/locations/us-central1/keyRings/keyring
+  - --key=projects/[project-name]/locations/us-central1/keyRings/keyring/cryptoKeys/my-ssh-key
+  volumes:
+  - name: 'ssh'
+    path: /root/.ssh
+
+# I use the git cloud builder image for some random bash to configure ssh settings
+- id: git-init
+  name: 'gcr.io/cloud-builders/git'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    chmod 600 /root/.ssh/id_rsa
+    cat &lt;/root/.ssh/config
+    Hostname bitbucket.org
+    IdentityFile /root/.ssh/id_rsa
+    ServerAliveInterval 60
+    EOF
+    ssh-keyscan -t rsa bitbucket.org &gt; /root/.ssh/known_hosts
+  volumes:
+  - name: 'ssh'
+    path: /root/.ssh
+  waitFor:
+  - gcloud-kms-init
+
+# Our custom composer builder image from the community builders: https://github.com/GoogleCloudPlatform/cloud-builders-community/tree/master/composer
+- id: composer-install
+  name: 'gcr.io/[project-name]/composer'
+  dir: 'src'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    ssh-keyscan -t rsa bitbucket.org &gt; /root/.ssh/known_hosts
+    composer install --no-interaction --ignore-platform-reqs --no-scripts
+  volumes:
+  - name: 'ssh'
+    path: /root/.ssh
+  waitFor:
+  - git-init
+
+- id: npm-install
+  name: gcr.io/cloud-builders/npm:latest
+  dir: 'src'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    npm install
+    npm run production
+  waitFor:
+  - composer-install
+
+# We want the smallest Docker image size possible
+- id: git-removal
+  name: 'gcr.io/cloud-builders/git'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    find . \( -name ".git" \) -exec rm -rf -- {} +
+    rm -rf node_modules bower_components *.tar.gz id_rsa.enc
+  waitFor:
+  - npm-install
+
+# Relying on CB's default substitutions: https://cloud.google.com/cloud-build/docs/configuring-builds/substitute-variable-values
+- id: docker-build
+  name: 'gcr.io/cloud-builders/docker'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      if [ -z "$TAG_NAME" ]; then
+        docker build \
+          -t gcr.io/[project-name]/almc-console:$SHORT_SHA \
+          .
+      else
+          docker build \
+          -t gcr.io/[project-name]/almc-console:$TAG_NAME \
+          .
+      fi
+  volumes:
+    - name: 'ssh'
+      path: /root/.ssh
+  waitFor:
+    - git-removal
+
+- id: docker-push
+  name: 'gcr.io/cloud-builders/docker'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      if [ -z "$TAG_NAME" ]; then
+        docker push gcr.io/[project-name]/almc-console:$SHORT_SHA
+      else
+        docker push gcr.io/[project-name]/almc-console:$TAG_NAME
+      fi
+  waitFor:
+    - docker-build
+
+- id: update-development
+  name: 'gcr.io/cloud-builders/kubectl'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    # This gcloud command is necessary because we are overriding the entrypoint which would normally execute the same command.
+    # Without it CB would error out with 'context "[project-name]" does not exist'.
+    gcloud container clusters get-credentials [project-name] --zone us-central1-a --project [project-name] 
+
+    # We only deploy tags to staging and production clusters, so this is a good way to build an image but skip the deployment.
+    if [ -z "$TAG_NAME" ]; then
+      # Something in the deployment has to change for Kubernetes to kick the pod
+      kubectl patch deployment/laravel -n almc-console --context=[project-name] --patch \
+        '{"spec": {"template": {"spec": {"initContainers": [{"name": "init-custom","image": "gcr.io/[project-name]/almc-console:$SHORT_SHA"}]}}}}'
+
+      # Wait for the rollout to succeed.
+      # It is possible that an error in the rollout could leave CB spinning until the timeout which could increase CB costs, so watch out.
+      kubectl rollout status deployment/laravel --context=[project-name] -n almc-console
+
+      # Get the running pod id, attach and execute requisite commands
+      kubectl exec -n almc-console --context=[project-name] $(kubectl get pods --no-headers -n almc-console --context=[project-name] --sort-by=.metadata.creationTimestamp | grep -i laravel | grep -i Running | tail -n 1 | cut -d' ' -f1) -c php-fpm -- /bin/bash -c 'php artisan migrate --force &amp;&amp; php artisan cache:clear &amp;&amp; php artisan view:clear'
+    fi
+  env:
+  - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
+  - "CLOUDSDK_CONTAINER_CLUSTER=[project-name]"
+  waitFor:
+  - docker-push</pre>
+<h2>Google gets you there&#8230;99.999% of the way</h2>
+<p>Now every time one of our developers or engineers pushes changes to upstream master Google will trigger a Cloud Build which will build a new image, tag it with the short commit hash and deploy to GKE. One of my personal goals is to eliminate our dependency on Jenkins. While it has been a trusty, often finicky companion, it is a painful ecosystem to maintain at scale. However, I suspect I&#8217;ve traded one sort of complexity for another.</p>
+<p>With Jenkins it was trivial to setup notifications via email, PagerDuty, or Slack. CB pushes notifications to a Google Pub/Sub topic which requires you the end-user to consume&#8230;somehow&#8230;on your own. Neat. Google&#8217;s recommended approach is for you to <a href="https://cloud.google.com/cloud-build/docs/configure-third-party-notifications">write a Cloud Function</a> to subscribe to the topic for push notifications, or to write a client (Python probably) to subscribe for periodic pulls.</p>
+<p>Sounds like another blog post.</p>
+<p>&nbsp;</p><p>The post <a rel="nofollow" href="https://www.josephjtroberts.com/autodepolying-to-kubernetes-using-google-cloud-build/">Autodepolying to Kubernetes using Google Cloud Build</a> appeared first on <a rel="nofollow" href="https://www.josephjtroberts.com/">A Reasonable Man</a>.</p>
+]]></content:encoded>
+					
+		
+		
+			</item>
+	</channel>
+</rss>
